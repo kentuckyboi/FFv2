@@ -104,15 +104,6 @@
       </div>
     `;
   }).join("");
-
-  $("#reset-btn").addEventListener("click", () => {
-    if (confirm("Reset all your task completions? (Demo only — useful for showing the app.)")) {
-      FF.resetProgress();
-      toast("Progress reset", "success");
-      setTimeout(() => location.reload(), 600);
-    }
-  });
-
   $("#signout-btn").addEventListener("click", () => FF.signOut());
 
   renderBottomNav("profile");
