@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B365D" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Tasks · ESP First Five</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Roboto:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar compact">
+    <h1>The First Five Challenge</h1>
+    <div class="sub">15 tasks · earn 20 points to reach Gold</div>
+  </header>
+
+  <!-- Filter tabs -->
+  <div class="tabs">
+    <button class="tab active" data-filter="all">All</button>
+    <button class="tab" data-filter="open">Open</button>
+    <button class="tab" data-filter="done">Done</button>
+  </div>
+
+  <div id="task-list" style="margin-top: 8px;"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+  FF.requireAuth();
+
+  let activeFilter = "all";
+  const completed = FF.completedMap();
+
+  function render() {
+    const list = $("#task-list");
+    let tasks = FF_TASKS.slice();
+    if (activeFilter === "open") tasks = tasks.filter(t => !completed[t.id]);
+    if (activeFilter === "done") tasks = tasks.filter(t => completed[t.id]);
+
+    if (!tasks.length) {
+      list.innerHTML = `<div class="card" style="text-align:center; color:var(--muted);">Nothing here yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = tasks.map(t => {
+      const isDone = !!completed[t.id];
+      return `
+        <a class="task ${isDone ? "done" : ""}" href="task.html?id=${t.id}">
+          <div class="icon">${isDone ? "✓" : t.icon}</div>
+          <div>
+            <div class="title">${t.name}</div>
+            <div class="meta">
+              <span class="proof-tag">${t.proof}</span>
+              <span>· ${t.category}</span>
+            </div>
+          </div>
+          <div class="pts">${t.points}<small>pts</small></div>
+        </a>
+      `;
+    }).join("");
+  }
+  render();
+
+  $$(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      $$(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      activeFilter = tab.dataset.filter;
+      render();
+    });
+  });
+
+  renderBottomNav("tasks");
+</script>
+</body>
+</html>

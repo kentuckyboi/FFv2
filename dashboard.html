@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B365D" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Home · ESP First Five</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Roboto:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="greeting-row">
+      <div class="avatar" id="user-avatar">··</div>
+      <div>
+        <h1 id="user-greeting">Welcome.</h1>
+        <div class="sub" id="conf-sub">National Conference · Loading…</div>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <span class="dot"></span>
+      <span id="user-pill">First Five Member</span>
+    </div>
+  </header>
+
+  <!-- Progress card -->
+  <section class="card">
+    <div class="progress-row">
+      <h2>Your Challenge Progress</h2>
+      <div class="progress-count">
+        <span id="done-count">0</span><small>/<span id="total-count">15</span></small>
+      </div>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="bar-fill"></div></div>
+    <div class="progress-meta">
+      <span><strong id="pct">0%</strong> complete</span>
+      <span><span id="remaining">15</span> tasks remaining</span>
+    </div>
+    <div class="badge-map" id="badge-map"></div>
+  </section>
+
+  <!-- Mission card (rotates) -->
+  <section class="card mission-card">
+    <h3>From the ESP Creed</h3>
+    <p class="quote" id="mission-quote">Loading…</p>
+    <div class="src">Tied to: <em id="mission-task">—</em></div>
+  </section>
+
+  <!-- Up next -->
+  <div class="section-h">
+    <h3>Up Next</h3>
+    <a href="tasks.html">View all</a>
+  </div>
+  <div id="up-next"></div>
+
+  <!-- Recently completed -->
+  <div class="section-h">
+    <h3>Recently Completed</h3>
+    <a href="profile.html">History</a>
+  </div>
+  <div id="recent"></div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+  FF.requireAuth();
+  // Pull latest completions from the backend (no-op in demo mode)
+  FF.refreshCompletions().then(() => { /* paint uses fresh cache */ });
+
+  // ---- Header ----
+  const me = FF.currentUser();
+  $("#user-avatar").textContent = initials(me.name);
+  $("#user-greeting").textContent = `Welcome, ${me.name.split(" ")[0]}.`;
+  $("#user-pill").textContent = `First Five Member · Year ${me.year}`;
+  $("#conf-sub").textContent = `${FF_SETTINGS.conferenceName} · ${me.chapter}`;
+
+  // ---- Progress ----
+  const total = FF_TASKS.length;
+  const done = FF.completedCount();
+  $("#done-count").textContent = done;
+  $("#total-count").textContent = total;
+  $("#remaining").textContent = total - done;
+  const pct = Math.round((done / total) * 100);
+  $("#pct").textContent = pct + "%";
+  // Tiny delay so the bar animates from 0 → pct
+  requestAnimationFrame(() => $("#bar-fill").style.width = pct + "%");
+
+  // ---- Badge map ----
+  const completed = FF.completedMap();
+  const map = $("#badge-map");
+  let firstUnfinished = -1;
+  FF_TASKS.forEach((t, i) => {
+    if (!completed[t.id] && firstUnfinished === -1) firstUnfinished = i;
+  });
+  FF_TASKS.forEach((t, i) => {
+    const a = document.createElement("a");
+    a.href = `task.html?id=${t.id}`;
+    a.className = "badge " + (completed[t.id] ? "done" : (i === firstUnfinished ? "next" : "locked"));
+    a.textContent = i + 1;
+    map.appendChild(a);
+  });
+
+  // ---- Mission quote — pick a random active (incomplete) task's tie-in ----
+  const missionPool = FF_TASKS.filter(t => !completed[t.id]);
+  const missionTask = (missionPool.length ? missionPool : FF_TASKS)[Math.floor(Math.random() * (missionPool.length || FF_TASKS.length))];
+  $("#mission-quote").textContent = missionTask.mission;
+  $("#mission-task").textContent = missionTask.name;
+
+  // ---- Up next: 3 highest-priority unfinished tasks ----
+  // Priority: signature tasks first (face-to-face), then by descending points
+  const upNext = FF_TASKS
+    .filter(t => !completed[t.id])
+    .sort((a, b) => {
+      if (a.proof === b.proof) return b.points - a.points;
+      return a.proof === "Signature" ? -1 : 1;
+    })
+    .slice(0, 3);
+
+  $("#up-next").innerHTML = upNext.length ? upNext.map((t, i) => `
+    <a class="task ${i === 0 ? "priority" : ""}" href="task.html?id=${t.id}">
+      <div class="icon">${t.icon}</div>
+      <div>
+        <div class="title">${t.name}</div>
+        <div class="meta">
+          <span class="proof-tag">${t.proof}</span>
+          <span>· ${t.where}</span>
+        </div>
+      </div>
+      <div class="pts">${t.points}<small>pts</small></div>
+    </a>
+  `).join("") : `
+    <div class="card" style="text-align:center; color:var(--good); font-weight:500;">
+      🎉 You've completed every task. Find a board member at the closing ceremony.
+    </div>
+  `;
+
+  // ---- Recently completed: last 3 ----
+  const recent = Object.entries(completed)
+    .sort((a, b) => b[1].when - a[1].when)
+    .slice(0, 3)
+    .map(([id, info]) => {
+      const t = FF_TASKS.find(x => x.id === id);
+      if (!t) return "";
+      return `
+        <a class="task done" href="task.html?id=${t.id}">
+          <div class="icon">✓</div>
+          <div>
+            <div class="title">${t.name}</div>
+            <div class="meta"><span>Completed · ${formatTime(info.when)}</span></div>
+          </div>
+          <div class="pts">${t.points}<small>pts</small></div>
+        </a>
+      `;
+    }).join("");
+  $("#recent").innerHTML = recent || `
+    <div class="card" style="color:var(--muted); text-align:center; font-size:14px;">
+      Nothing here yet. Tap a task above to begin.
+    </div>
+  `;
+
+  renderBottomNav("dashboard");
+</script>
+</body>
+</html>

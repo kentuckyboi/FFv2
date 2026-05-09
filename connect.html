@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B365D" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Connect · ESP First Five</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Roboto:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar compact">
+    <h1>Connect</h1>
+    <div class="sub">Member directory and your conversations</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="directory">Directory</button>
+    <button class="tab" data-tab="chats">Chats</button>
+  </div>
+
+  <!-- Directory view -->
+  <div id="directory-view"></div>
+
+  <!-- Chats view -->
+  <div id="chats-view" style="display:none;"></div>
+
+  <!-- Single chat thread (overlays when a member is selected) -->
+  <div id="thread-view" style="display:none;">
+    <header class="topbar compact">
+      <button class="back-btn" id="thread-back">← Back</button>
+      <div class="greeting-row">
+        <div class="avatar" id="thread-avatar">··</div>
+        <div>
+          <h1 id="thread-name" style="font-size: 18px;">—</h1>
+          <div class="sub" id="thread-meta">—</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="chat-thread" id="chat-thread"></section>
+
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Type a message…" />
+      <button id="chat-send">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+  FF.requireAuth();
+  FF.seedDemoChat();
+  // In live mode, refresh roster so newly signed-up members appear in the directory
+  FF.refreshRoster().then(() => {
+    if (typeof renderDirectory === "function") renderDirectory();
+  });
+
+  const me = FF.currentUser();
+
+  // Build the directory list (everyone except me)
+  function renderDirectory() {
+    const others = FF_MEMBERS.filter(m => m.email !== me.email);
+    $("#directory-view").innerHTML = others.map(m => `
+      <div class="member-card" data-email="${m.email}">
+        <div class="avatar" style="background: var(--esp-blue); color: var(--esp-gold); font-size: 16px;">${initials(m.name)}</div>
+        <div>
+          <div class="name">${m.name}</div>
+          <div class="meta">${m.chapter} · Year ${m.year}</div>
+          <div class="meta" style="font-style: italic; margin-top: 2px;">${m.headline}</div>
+        </div>
+        <button class="chat-btn">Chat</button>
+      </div>
+    `).join("");
+    $$(".member-card").forEach(card => {
+      card.addEventListener("click", () => openThread(card.dataset.email));
+    });
+  }
+
+  // Build the chats list — show only threads that have messages
+  function renderChats() {
+    const threads = FF.allThreads();
+    const entries = Object.entries(threads).filter(([_, msgs]) => msgs.length > 0);
+    if (!entries.length) {
+      $("#chats-view").innerHTML = `
+        <div class="card" style="color: var(--muted); text-align: center;">
+          You haven't started any chats yet. Tap the Directory tab to find members.
+        </div>`;
+      return;
+    }
+    $("#chats-view").innerHTML = entries.map(([email, msgs]) => {
+      const m = FF.memberByEmail(email);
+      if (!m) return "";
+      const last = msgs[msgs.length - 1];
+      return `
+        <div class="member-card" data-email="${email}">
+          <div class="avatar" style="background: var(--esp-blue); color: var(--esp-gold); font-size: 16px;">${initials(m.name)}</div>
+          <div>
+            <div class="name">${m.name}</div>
+            <div class="meta">${last.text.slice(0, 60)}${last.text.length > 60 ? "…" : ""}</div>
+          </div>
+          <div style="font-size: 11px; color: var(--muted);">${formatTime(last.t)}</div>
+        </div>
+      `;
+    }).join("");
+    $$("#chats-view .member-card").forEach(card => {
+      card.addEventListener("click", () => openThread(card.dataset.email));
+    });
+  }
+
+  // Show a single thread in conversation view
+  function openThread(email) {
+    const other = FF.memberByEmail(email);
+    if (!other) return;
+    $("#directory-view").style.display = "none";
+    $("#chats-view").style.display = "none";
+    $(".tabs").style.display = "none";
+    $("#thread-view").style.display = "block";
+
+    $("#thread-name").textContent = other.name;
+    $("#thread-meta").textContent = `${other.chapter} · Year ${other.year}`;
+    $("#thread-avatar").textContent = initials(other.name);
+
+    paintThread(email);
+
+    $("#chat-input").focus();
+    $("#chat-send").onclick = () => sendMessage(email);
+    $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendMessage(email); };
+  }
+
+  function paintThread(email) {
+    const msgs = FF.thread(email);
+    $("#chat-thread").innerHTML = msgs.map(m => `
+      <div class="chat-bubble ${m.from === "self" ? "mine" : "theirs"}">
+        ${m.text}
+        <div class="when">${formatTime(m.t)}</div>
+      </div>
+    `).join("");
+    // Scroll to latest
+    const tv = $("#chat-thread");
+    tv.scrollTop = tv.scrollHeight;
+  }
+
+  function sendMessage(email) {
+    const input = $("#chat-input");
+    const text = input.value.trim();
+    if (!text) return;
+    FF.appendMessage(email, { from: "self", text, t: Date.now() });
+    input.value = "";
+    paintThread(email);
+  }
+
+  $("#thread-back").addEventListener("click", () => {
+    $("#thread-view").style.display = "none";
+    $(".tabs").style.display = "flex";
+    const activeTab = $(".tab.active").dataset.tab;
+    if (activeTab === "directory") $("#directory-view").style.display = "block";
+    else $("#chats-view").style.display = "block";
+    renderChats();
+  });
+
+  // Tab switching
+  $$(".tab").forEach(t => {
+    t.addEventListener("click", () => {
+      $$(".tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      const which = t.dataset.tab;
+      $("#directory-view").style.display = which === "directory" ? "block" : "none";
+      $("#chats-view").style.display = which === "chats" ? "block" : "none";
+      if (which === "chats") renderChats();
+    });
+  });
+
+  renderDirectory();
+  renderBottomNav("connect");
+</script>
+</body>
+</html>

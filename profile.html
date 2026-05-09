@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B365D" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Profile · ESP First Five</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Roboto:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app">
+  <header class="profile-hero">
+    <div class="avatar" id="p-avatar">··</div>
+    <h1 id="p-name">—</h1>
+    <div class="meta" id="p-meta">—</div>
+    <div class="badge-pill" style="margin-top: 14px;">
+      <span class="dot"></span> Tier: <span id="p-tier">—</span>
+    </div>
+  </header>
+
+  <section class="stat-grid">
+    <div class="stat">
+      <div class="num" id="s-points">0</div>
+      <div class="lbl">Points</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="s-tasks">0</div>
+      <div class="lbl">Tasks done</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="s-pct">0%</div>
+      <div class="lbl">Complete</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3 style="font-family: 'Playfair Display', serif; font-size: 17px; color: var(--esp-blue); margin-bottom: 8px;">
+      I'd love to talk to someone about…
+    </h3>
+    <p id="p-headline" style="font-size: 14px; color: var(--ink); line-height: 1.5; font-style: italic;">—</p>
+  </section>
+
+  <section class="card">
+    <h3 style="font-family: 'Playfair Display', serif; font-size: 17px; color: var(--esp-blue); margin-bottom: 12px;">
+      Recognition tiers
+    </h3>
+    <div id="tier-list" style="font-size: 14px; color: var(--ink); line-height: 1.7;"></div>
+  </section>
+
+  <section class="card">
+    <h3 style="font-family: 'Playfair Display', serif; font-size: 17px; color: var(--esp-blue); margin-bottom: 6px;">Account</h3>
+    <p style="font-size: 13px; color: var(--muted); margin: 0 0 12px;">
+      Signed in as <strong id="p-email" style="color: var(--esp-blue);"></strong>
+    </p>
+    <button class="btn ghost" id="reset-btn" style="margin-bottom: 10px;">Reset demo progress</button>
+    <button class="btn secondary" id="signout-btn">Sign out</button>
+  </section>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+  FF.requireAuth();
+  FF.refreshCompletions();
+
+  const me = FF.currentUser();
+  $("#p-avatar").textContent = initials(me.name);
+  $("#p-name").textContent = me.name;
+  $("#p-meta").textContent = `${me.chapter} · First Five · Year ${me.year}`;
+  $("#p-headline").textContent = me.headline;
+  $("#p-email").textContent = me.email;
+
+  $("#s-points").textContent = FF.earnedPoints();
+  $("#s-tasks").textContent = `${FF.completedCount()}/${FF_TASKS.length}`;
+  const pct = Math.round((FF.completedCount() / FF_TASKS.length) * 100);
+  $("#s-pct").textContent = pct + "%";
+  $("#p-tier").textContent = FF.tier();
+
+  // Render tier ladder
+  const earned = FF.earnedPoints();
+  const tiers = [
+    { name: "Bronze", pts: FF_SETTINGS.bronze, desc: "Personalized completion certificate." },
+    { name: "Silver", pts: FF_SETTINGS.silver, desc: "Bronze + ribbon for next year's badge." },
+    { name: "Gold",   pts: FF_SETTINGS.gold,   desc: "Silver + named on stage at closing ceremony." },
+  ];
+  $("#tier-list").innerHTML = tiers.map(t => {
+    const reached = earned >= t.pts;
+    const color = reached ? "var(--good)" : "var(--muted)";
+    const icon = reached ? "✓" : "○";
+    return `
+      <div style="display:flex; gap:10px; align-items: baseline; margin-bottom: 6px;">
+        <span style="color: ${color}; font-size: 16px; font-weight: 700; width: 18px;">${icon}</span>
+        <strong style="color: ${reached ? "var(--esp-blue)" : "var(--muted)"}; min-width: 60px;">${t.name}</strong>
+        <span style="color: var(--muted); margin-right: 4px;">${t.pts} pts</span>
+        <span style="color: ${reached ? "var(--ink)" : "var(--muted)"};">${t.desc}</span>
+      </div>
+    `;
+  }).join("");
+
+  $("#reset-btn").addEventListener("click", () => {
+    if (confirm("Reset all your task completions? (Demo only — useful for showing the app.)")) {
+      FF.resetProgress();
+      toast("Progress reset", "success");
+      setTimeout(() => location.reload(), 600);
+    }
+  });
+
+  $("#signout-btn").addEventListener("click", () => FF.signOut());
+
+  renderBottomNav("profile");
+</script>
+</body>
+</html>

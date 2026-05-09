@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B365D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="img/icon-192.png" />
+  <title>Sign in · ESP First Five</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Roboto:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<main class="signin-stage">
+  <div class="crest">FF</div>
+  <h1>First Five Project</h1>
+  <div class="tag">Epsilon Sigma Phi · National Conference</div>
+
+  <form id="signin-form">
+    <div class="form-field">
+      <label for="email">Member email</label>
+      <input type="email" id="email" autocomplete="email" placeholder="you@example.org" required />
+    </div>
+    <button class="btn primary" type="submit" id="signin-btn">Continue</button>
+    <p class="helper" style="margin-top: 18px;">
+      <a href="signup.html" id="signup-link" style="color: var(--esp-gold); text-decoration: underline;">
+        New to First Five? Sign up here →
+      </a>
+    </p>
+    <p class="helper">
+      Use the email on your ESP membership record. We'll match you against the First Five roster.<br>
+      <em id="demo-hint" style="opacity:.8; display:none;">Demo emails: tyrone@example.org, marisol@example.org, denzel@example.org</em>
+    </p>
+  </form>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script>
+  // Hide signup link if disabled, show demo hint only in demo mode
+  document.addEventListener("DOMContentLoaded", () => {
+    const isLive = !!(window.FF_CONFIG && window.FF_CONFIG.apiUrl);
+    if (!isLive) document.getElementById("demo-hint").style.display = "inline";
+    if (window.FF_CONFIG && window.FF_CONFIG.allowSelfSignup === false) {
+      document.getElementById("signup-link").style.display = "none";
+    }
+  });
+</script>
+<script src="js/app.js"></script>
+<script>
+  // If already signed in, skip straight to the dashboard.
+  if (FF.currentUserEmail()) {
+    location.href = "dashboard.html";
+  }
+
+  document.getElementById("signin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("signin-btn");
+    btn.disabled = true; btn.textContent = "Checking…";
+
+    const email = document.getElementById("email").value;
+    const result = await FF.signIn(email);
+
+    btn.disabled = false; btn.textContent = "Continue";
+
+    if (!result.ok) {
+      toast(result.message, "error");
+      return;
+    }
+    location.href = "dashboard.html";
+  });
+</script>
+</body>
+</html>
