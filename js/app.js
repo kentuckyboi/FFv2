@@ -285,7 +285,6 @@ function renderBottomNav(activePage) {
   const items = [
     { page: "dashboard", href: "dashboard.html", label: "Home",    icon: "🏠" },
     { page: "tasks",     href: "tasks.html",     label: "Tasks",   icon: "🗺️" },
-    { page: "connect",   href: "connect.html",   label: "Connect", icon: "💬" },
     { page: "profile",   href: "profile.html",   label: "Profile", icon: "👤" },
   ];
   const html = items.map(i => `
