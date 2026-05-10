@@ -137,7 +137,7 @@ window.FF_SETTINGS = {
   silver: 14,
   gold: 20,
   chatEnabled: true,
-  moderationEmail: "membership@espnational.org",
+  moderationEmail: "tyrone@kytravels.com",
 };
 
 // Sample chat thread (only used for demonstration).
